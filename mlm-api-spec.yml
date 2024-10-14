@@ -1,0 +1,948 @@
+openapi: 3.0.0
+info:
+  title: MLM Platform API Spec
+  description: API Spec for the MLM platform. Includes user and admin functionalities.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local Development Server
+
+
+tags:
+  - name: user
+    description: User-related operations
+    
+  - name: token-management
+    description: Operations related to staking and converting tokens
+    
+  - name: transaction
+    description: Operations for viewing transactions (admin and user)
+    
+  - name: pool
+    description: Operations related to staking pools
+    
+  - name: level
+    description: Operations related to referral levels
+    
+  - name: rank
+    description: Operations related to user ranks
+  
+
+paths:
+  /signin:
+    post:
+      summary: User login
+      tags:
+        - user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usernameOrEmail:
+                  type: string
+                  description: Username or email for login
+                password:
+                  type: string
+                  format: password
+                  description: User's password
+              required:
+                - usernameOrEmail
+                - password
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+        400:
+          description: Invalid username or password
+        500:
+          description: Internal server error
+
+  /signup:
+    post:
+      summary: Create a new user account
+      tags:
+        - user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                phone:
+                  type: string
+                name:
+                  type: string
+                referralCode:
+                  type: string
+              required:
+                - username
+                - email
+                - password
+                - phone
+                - name
+      responses:
+        201:
+          description: Signup successful, user created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+        400:
+          description: Missing or invalid input data
+        409:
+          description: User already exists
+        500:
+          description: Internal server error
+
+  /connect-wallet:
+    post:
+      summary: Add or update wallet address
+      tags:
+        - user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                wallet_address:
+                  type: string
+                  description: The wallet address to connect
+              required:
+                - wallet_address
+      responses:
+        200:
+          description: Wallet connected successfully
+        400:
+          description: Wallet verification is in progress, or wallet is attached to another account
+        500:
+          description: Internal server error
+
+  /profile:
+    get:
+      summary: Get user profile
+      tags:
+        - user
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        404:
+          description: User not found
+        500:
+          description: Internal server error
+
+    put:
+      summary: Update user profile
+      tags:
+        - user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+                username:
+                  type: string
+              required:
+                - phone
+                - name
+                - email
+                - username
+      responses:
+        200:
+          description: Profile updated successfully
+        400:
+          description: Invalid input data
+        500:
+          description: Internal server error
+
+  /users:
+    get:
+      summary: Get users with pagination (Admin only)
+      tags:
+        - user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: Number of users per page
+      responses:
+        200:
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        403:
+          description: Forbidden, admin access only
+        500:
+          description: Internal server error
+          
+  
+  /stake:
+    post:
+      summary: Stake custom tokens
+      tags:
+        - token-management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  description: Amount of custom tokens to stake
+              required:
+                - amount
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Staking successful
+        400:
+          description: Invalid staking amount
+        500:
+          description: Internal server error
+
+  /convert:
+    post:
+      summary: Convert USDT to custom tokens
+      tags:
+        - token-management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                usdt:
+                  type: number
+                  description: Amount of USDT to convert
+              required:
+                - usdt
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Conversion successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customTokenAmount:
+                    type: number
+                    description: Amount of custom tokens received
+        400:
+          description: Invalid USDT amount
+        500:
+          description: Internal server error
+          
+  
+  /transactions/{id}:
+    get:
+      summary: Get a single transaction by ID
+      tags:
+        - transaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Transaction ID to retrieve
+      responses:
+        200:
+          description: Transaction retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        404:
+          description: Transaction not found
+        403:
+          description: Forbidden
+        500:
+          description: Internal server error
+
+  /transactions:
+    get:
+      summary: Get all transactions with pagination and filters
+      tags:
+        - transaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: Number of transactions per page
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: ['staking', 'deposit', 'levelIncome', 'dailyReward', 'rankReward']
+          description: Filter transactions by type
+        - in: query
+          name: currency
+          schema:
+            type: string
+            enum: ['USDT', 'CustomCoin']
+          description: Filter transactions by currency
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+          description: Filter transactions from this date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+          description: Filter transactions up to this date
+        - in: query
+          name: creditedWalletAddress
+          schema:
+            type: string
+          description: Filter transactions by wallet address
+        - in: query
+          name: debitedWalletAddress
+          schema:
+            type: string
+          description: Filter transactions by wallet address
+        - in: query
+          name: creditedUserId
+          schema:
+            type: string
+          description: Filter transactions by user ID (admin only)
+          required: false
+        - in: query
+          name: debitedUserId
+          schema:
+            type: string
+          description: Filter transactions by user ID (admin only)
+      responses:
+        200:
+          description: List of transactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+        403:
+          description: Forbidden, normal users can only access their transactions
+        500:
+          description: Internal server error
+          
+  
+  /pools:
+    get:
+      summary: Get all staking pools
+      tags:
+        - pool
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of pools retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pool'
+        500:
+          description: Internal server error
+
+    post:
+      summary: Create a new staking pool  (Admin only)
+      tags:
+        - pool
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pool'
+      responses:
+        201:
+          description: Pool created successfully
+        403:
+          description: Forbidden, admin access only
+        500:
+          description: Internal server error
+
+  /pools/{id}:
+    get:
+      summary: Get a specific pool by ID
+      tags:
+        - pool
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Pool ID to retrieve
+      responses:
+        200:
+          description: Pool retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pool'
+        404:
+          description: Pool not found
+        500:
+          description: Internal server error
+
+    put:
+      summary: Update a specific pool by ID (Admin only)
+      tags:
+        - pool
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Pool ID to retrieve
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pool'
+      responses:
+        200:
+          description: Pool updated successfully
+        403:
+          description: Forbidden, admin access only
+        500:
+          description: Internal server error
+
+    delete:
+      summary: Delete a pool by ID  (Admin only)
+      tags:
+        - pool
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Pool ID to delete
+      responses:
+        400:
+          description: Cannot delete pool if it is in use
+        403:
+          description: Forbidden, admin access only
+        500:
+          description: Internal server error
+          
+  /levels:
+    get:
+      summary: Get all referral levels
+      tags:
+        - level
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of levels retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Level'
+        500:
+          description: Internal server error
+
+    post:
+      summary: Create a new referral level (Admin only)
+      tags:
+        - level
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Level'
+      responses:
+        201:
+          description: Level created successfully
+        403:
+          description: Forbidden, admin access only
+        500:
+          description: Internal server error
+
+  /levels/{id}:
+    get:
+      summary: Get a specific level by ID
+      tags:
+        - level
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Level ID to retrieve
+      responses:
+        200:
+          description: Level retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Level'
+        404:
+          description: Level not found
+        500:
+          description: Internal server error
+
+    put:
+      summary: Update a specific level by ID  (Admin only)
+      tags:
+        - level
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Pool ID to retrieve
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Level'
+      responses:
+        200:
+          description: Level updated successfully
+        403:
+          description: Forbidden, admin access only
+        500:
+          description: Internal server error
+
+    delete:
+      summary: Delete a level by ID  (Admin only)
+      tags:
+        - level
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Level ID to delete
+      responses:
+        400:
+          description: Cannot delete level if it is in use
+        403:
+          description: Forbidden, admin access only
+        500:
+          description: Internal server error
+          
+  /ranks:
+    get:
+      summary: Get all user ranks
+      tags:
+        - rank
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: List of ranks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Rank'
+        500:
+          description: Internal server error
+
+    post:
+      summary: Create a new rank  (admin only)
+      tags:
+        - rank
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Rank'
+      responses:
+        201:
+          description: Rank created successfully
+        403:
+          description: Forbidden, admin access only
+        500:
+          description: Internal server error
+
+  /ranks/{id}:
+    get:
+      summary: Get a specific rank by ID
+      tags:
+        - rank
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Rank ID to retrieve
+      responses:
+        200:
+          description: Rank retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rank'
+        404:
+          description: Rank not found
+        500:
+          description: Internal server error
+
+    put:
+      summary: Update a specific rank by ID (admin only)
+      tags:
+        - rank
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Pool ID to retrieve
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Rank'
+      responses:
+        200:
+          description: Rank updated successfully
+        403:
+          description: Forbidden, admin access only
+        500:
+          description: Internal server error
+
+    delete:
+      summary: Delete a rank by ID  (admin only)
+      tags:
+        - rank
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Rank ID to delete
+      responses:
+        400:
+          description: Cannot delete rank if it is in use
+        403:
+          description: Forbidden, admin access only
+        500:
+          description: Internal server error
+
+
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        verifiedEmail:
+          type: boolean
+        verifiedPhone:
+          type: boolean
+        email:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum: ['user', 'admin']
+        password:
+          type: string
+        referralCode:
+          type: string
+        referralUsed:
+          type: string
+        levelInfo:
+          $ref: '#/components/schemas/LevelInfo'
+        wallet:
+          $ref: '#/components/schemas/UserWallet'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LevelInfo:
+      type: object
+      properties:
+        userId:
+          type: string
+        level:
+          $ref: '#/components/schemas/Level'
+        stakedAmount:
+          type: number
+        rewardsEarned:
+          type: object
+          properties:
+            dailyReward:
+              type: number
+            levelReward:
+              type: number
+            rankReward:
+              type: number
+        rankInfo:
+          type: object
+          properties:
+            usersBelow:
+              type: number
+            totalStakedByUsersBelow:
+              type: number
+
+    WalletStatus:
+      type: string
+      enum: ['inprogress', 'verified', 'failed']
+
+    UserWallet:
+      type: object
+      properties:
+        userId:
+          type: string
+        walletAddress:
+          type: string
+        verificationStatus:
+          $ref: '#/components/schemas/WalletStatus'
+        usdtBalance:
+          type: number
+        customTokenBalance:
+          type: number
+        updatedAt:
+          type: string
+          format: date-time
+
+    CurrencyType:
+      type: string
+      enum: ['USDT', 'CustomCoin']
+
+    TransactionType:
+      type: string
+      enum: ['staking', 'deposit', 'levelIncome', 'dailyReward', 'rankReward']
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        creditedUserId:
+          type: string
+        creditedWalletAddress:
+          type: string
+        debitedUserId:
+          type: string
+        debitedWalletAddress:
+          type: string
+        amount:
+          type: number
+        currency:
+          $ref: '#/components/schemas/CurrencyType'
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Pool:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        minStakeAmount:
+          type: number
+        maxStakeAmount:
+          type: number
+        dailyRewardRate:
+          type: number
+        lockInPeriodInDays:
+          type: number
+        releaseSchedule:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Rank:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        requiredStakeAmount:
+          type: number
+        rewardInCoin:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Level:
+      type: object
+      properties:
+        id:
+          type: string
+        levelNumber:
+          type: number
+        referralPercentage:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          
+    PlatformWallet:
+      type: object
+      properties:
+        id:
+          type: string
+        walletType:
+          type: string
+          enum: ['deposit', 'staking', 'fee']
+        currency:
+          type: string
+          enum: ['usdt', 'coin']
+        amount:
+          type: number
+        walletAddress:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
